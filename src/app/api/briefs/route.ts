@@ -1,4 +1,8 @@
-import { buildBriefPrompt, type AnalysisDepth } from "@/domain/brief-prompt";
+import {
+  buildBriefPrompt,
+  normalizeAnalysisDepth,
+  normalizeAnalysisMode,
+} from "@/domain/brief-prompt";
 import { createBriefIdentity } from "@/domain/brief-identity";
 import { parseRepositoryId } from "@/domain/repository-id";
 import {
@@ -20,8 +24,11 @@ const postLimiter = createRateLimiter();
 
 type BriefRequest = {
   repository?: unknown;
+  mode?: unknown;
   depth?: unknown;
   question?: unknown;
+  include?: unknown;
+  exclude?: unknown;
 };
 
 function errorResponse(code: string, message: string, status: number) {
@@ -37,6 +44,8 @@ export async function GET(request: Request) {
       repository: row.repository_key,
       title: row.title,
       summary: row.brief_markdown.slice(0, 220),
+      mode: row.analysis_mode ?? "build",
+      depth: row.analysis_depth ?? "fast",
       createdAt: row.created_at,
       views: row.view_count,
     })),
@@ -66,12 +75,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const depth: AnalysisDepth =
-    body.depth === "thorough" || body.depth === "focused" ? body.depth : "fast";
+  const mode = normalizeAnalysisMode(body.mode);
+  const depth = normalizeAnalysisDepth(body.depth);
   const question =
     typeof body.question === "string" && body.question.trim()
       ? body.question.trim()
       : null;
+  const include = typeof body.include === "string" ? body.include : undefined;
+  const exclude = typeof body.exclude === "string" ? body.exclude : undefined;
 
   if (depth === "focused" && !question) {
     return errorResponse(
@@ -83,23 +94,30 @@ export async function POST(request: Request) {
 
   try {
     const id = parseRepositoryId(body.repository);
-    const identity = createBriefIdentity(id.key, depth, question);
+    const identity = createBriefIdentity(id.key, mode, depth, question);
     const stored = await readStoredBrief(identity);
     if (stored) {
       return Response.json({
         brief: stored.brief_markdown,
         source: "cache",
+        mode: stored.analysis_mode ?? mode,
+        depth: stored.analysis_depth ?? depth,
         evidence: {
           filesRead: stored.evidence_json.filesRead ?? 0,
           treeEntries: stored.evidence_json.treeEntries ?? 0,
+          estimatedTokens: stored.evidence_json.estimatedTokens ?? 0,
+          selectedFiles: stored.evidence_json.selectedFiles ?? [],
+          skippedFiles: stored.evidence_json.skippedFiles ?? [],
+          largestFiles: stored.evidence_json.largestFiles ?? [],
         },
       });
     }
 
-    const evidence = await collectRepositoryEvidence(id, depth);
+    const evidence = await collectRepositoryEvidence(id, depth, mode, { include, exclude });
     const brief = await requestBrief(
       buildBriefPrompt({
         repositoryKey: id.key,
+        mode,
         depth,
         question,
         ...evidence,
@@ -108,6 +126,18 @@ export async function POST(request: Request) {
     const responseEvidence = {
       filesRead: evidence.files.length,
       treeEntries: evidence.treeEntries,
+      estimatedTokens: evidence.selection.estimatedTokens,
+      selectedFiles: evidence.selection.selected.map((file) => ({
+        path: file.path,
+        size: file.size,
+        reason: file.reason,
+        estimatedTokens: file.estimatedTokens,
+      })),
+      skippedFiles: evidence.selection.skipped.map((file) => ({
+        path: file.path,
+        reason: file.reason,
+      })),
+      largestFiles: evidence.selection.largestFiles,
     };
     await saveStoredBrief({
       identity,
@@ -119,6 +149,8 @@ export async function POST(request: Request) {
     return Response.json({
       brief,
       source: "generated",
+      mode,
+      depth,
       evidence: responseEvidence,
     });
   } catch (error) {
@@ -128,6 +160,9 @@ export async function POST(request: Request) {
     }
     if (/GitHub request/iu.test(message)) {
       return errorResponse("GITHUB_UNAVAILABLE", message, 502);
+    }
+    if (/Filter patterns/iu.test(message)) {
+      return errorResponse("INVALID_FILTER", message, 400);
     }
     if (/chat|model|MODEL_/iu.test(message)) {
       return errorResponse("MODEL_UNAVAILABLE", message, 502);

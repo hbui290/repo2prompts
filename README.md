@@ -2,14 +2,18 @@
 
 Clean-room implementation of a self-hosted public repository brief generator.
 
-Enter a public GitHub repository and choose an analysis depth. The application
-collects bounded repository evidence and asks an OpenAI-compatible model to
-produce an implementation brief that distinguishes observations from inference.
+Enter a public GitHub repository, choose an analysis mode, optionally steer file
+selection, and generate an evidence-grounded brief for a coding agent.
 
 ## Current scope
 
-- `fast`, `thorough`, and `focused` analysis modes.
+- Analysis modes: `build`, `review`, `debug`, `migration`, and `prompt`.
+- Depths: `fast`, `balanced`, `deep`, and `focused`.
+- Include/exclude filters for repository evidence selection.
+- Selected/skipped file evidence, estimated tokens, and largest-file summaries.
+- Copy, Markdown download, and JSON evidence export actions.
 - GitHub metadata, recursive tree, and selected readable file collection.
+- Lightweight security guard for obvious secret paths and token-looking content.
 - OpenAI-compatible JSON and SSE response parsing.
 - Responsive self-hosted workbench.
 - Status endpoint that does not expose secrets.
@@ -50,6 +54,10 @@ DATABASE_SERVICE_KEY=replace-with-server-only-secret
 Apply the fresh schema from `supabase/migrations` to a separate Supabase project.
 Never expose `DATABASE_SERVICE_KEY` through a `NEXT_PUBLIC_` variable.
 
+The evidence workbench migration adds `analysis_mode`, expands accepted depth
+values, and changes the cache key so different modes do not reuse the same
+stored brief.
+
 Optional public and abuse-control config:
 
 ```env
@@ -77,6 +85,18 @@ pnpm test
 pnpm lint
 pnpm build
 ```
+
+## Evidence filters
+
+Advanced filters accept comma-separated path patterns:
+
+```text
+include: src/**, app/**, package.json
+exclude: **/*.test.ts, dist/**, node_modules/**
+```
+
+Filters can narrow repository context, but they cannot force secret-looking
+files into model input.
 
 ## Production
 

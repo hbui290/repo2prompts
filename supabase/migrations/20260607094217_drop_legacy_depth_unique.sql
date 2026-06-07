@@ -1,0 +1,5 @@
+alter table public.repository_briefs
+  drop constraint if exists repository_briefs_repository_key_analysis_depth_question_hash_key;
+
+alter table public.repository_briefs
+  drop constraint if exists repository_briefs_repository_key_analysis_depth_question_ha_key;

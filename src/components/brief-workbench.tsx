@@ -2,18 +2,79 @@
 
 import { useState } from "react";
 
-type Depth = "fast" | "thorough" | "focused";
+import { BriefActions } from "./brief-actions";
+
+type Depth = "fast" | "balanced" | "deep" | "focused";
+type Mode = "build" | "review" | "debug" | "migration" | "prompt";
+
+type EvidenceFile = {
+  path: string;
+  size?: number;
+  reason?: string;
+  estimatedTokens?: number;
+};
 
 type BriefResponse = {
   brief?: string;
-  evidence?: { filesRead: number; treeEntries: number };
+  source?: "generated" | "cache";
+  mode?: Mode;
+  depth?: Depth;
+  evidence?: {
+    filesRead?: number;
+    treeEntries?: number;
+    estimatedTokens?: number;
+    selectedFiles?: EvidenceFile[];
+    skippedFiles?: EvidenceFile[];
+    largestFiles?: EvidenceFile[];
+  };
   error?: { message: string };
 };
 
+const SAMPLES = ["vercel/ai", "supabase/supabase", "shadcn-ui/ui"];
+
+const MODES: Array<{ value: Mode; label: string; description: string }> = [
+  { value: "build", label: "Build", description: "Implementation brief" },
+  { value: "review", label: "Review", description: "Risks and tests" },
+  { value: "debug", label: "Debug", description: "Failure paths" },
+  { value: "migration", label: "Migration", description: "Refactor plan" },
+  { value: "prompt", label: "Prompt", description: "Concise agent prompt" },
+];
+
+const DEPTHS: Array<{ value: Depth; label: string; description: string }> = [
+  { value: "fast", label: "Fast", description: "Small context" },
+  { value: "balanced", label: "Balanced", description: "Default quality" },
+  { value: "deep", label: "Deep", description: "More evidence" },
+  { value: "focused", label: "Focused", description: "Question-led" },
+];
+
+function slug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "") || "brief";
+}
+
+function FileList({ files }: { files: EvidenceFile[] }) {
+  if (!files.length) return <p className="muted">No files recorded.</p>;
+  return (
+    <ul className="file-list">
+      {files.slice(0, 20).map((file) => (
+        <li key={`${file.path}-${file.reason ?? "selected"}`}>
+          <span>{file.path}</span>
+          <small>
+            {file.estimatedTokens ? `${file.estimatedTokens} tokens` : null}
+            {file.reason ? ` ${file.reason}` : null}
+          </small>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function BriefWorkbench() {
   const [repository, setRepository] = useState("");
-  const [depth, setDepth] = useState<Depth>("fast");
+  const [mode, setMode] = useState<Mode>("build");
+  const [depth, setDepth] = useState<Depth>("balanced");
   const [question, setQuestion] = useState("");
+  const [include, setInclude] = useState("");
+  const [exclude, setExclude] = useState("");
   const [result, setResult] = useState<BriefResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +87,7 @@ export function BriefWorkbench() {
       const response = await fetch("/api/briefs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ repository, depth, question }),
+        body: JSON.stringify({ repository, mode, depth, question, include, exclude }),
       });
       setResult((await response.json()) as BriefResponse);
     } catch {
@@ -36,15 +97,19 @@ export function BriefWorkbench() {
     }
   }
 
+  const selectedFiles = result?.evidence?.selectedFiles ?? [];
+  const skippedFiles = result?.evidence?.skippedFiles ?? [];
+  const largestFiles = result?.evidence?.largestFiles ?? [];
+
   return (
     <div className="workbench">
       <form className="request-panel" onSubmit={submit}>
         <div>
-          <p className="kicker">Repository brief generator</p>
-          <h1>Understand a codebase before you build.</h1>
+          <p className="kicker">Repository evidence workbench</p>
+          <h1>Turn repos into build briefs.</h1>
           <p className="intro">
-            Enter a public GitHub repository. Receive an evidence-grounded
-            implementation brief with architecture, risks, and a build sequence.
+            Paste a public GitHub repository, choose what kind of brief you need,
+            and see the evidence used before you ship it to an agent.
           </p>
         </div>
 
@@ -53,22 +118,49 @@ export function BriefWorkbench() {
           <input
             value={repository}
             onChange={(event) => setRepository(event.target.value)}
-            placeholder="owner/repository or GitHub URL"
+            placeholder="owner/repo or https://github.com/owner/repo"
             required
           />
+          <span className="helper">Public GitHub repositories only.</span>
         </label>
 
+        <div className="sample-row">
+          {SAMPLES.map((sample) => (
+            <button key={sample} type="button" onClick={() => setRepository(sample)}>
+              {sample}
+            </button>
+          ))}
+        </div>
+
         <fieldset>
-          <legend>Analysis depth</legend>
-          <div className="depth-options">
-            {(["fast", "thorough", "focused"] as const).map((option) => (
+          <legend>Analysis mode</legend>
+          <div className="option-grid mode-grid">
+            {MODES.map((option) => (
               <button
-                key={option}
+                key={option.value}
                 type="button"
-                className={depth === option ? "selected" : ""}
-                onClick={() => setDepth(option)}
+                className={mode === option.value ? "selected" : ""}
+                onClick={() => setMode(option.value)}
               >
-                {option}
+                <span>{option.label}</span>
+                <small>{option.description}</small>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Depth</legend>
+          <div className="option-grid depth-options">
+            {DEPTHS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={depth === option.value ? "selected" : ""}
+                onClick={() => setDepth(option.value)}
+              >
+                <span>{option.label}</span>
+                <small>{option.description}</small>
               </button>
             ))}
           </div>
@@ -86,6 +178,26 @@ export function BriefWorkbench() {
           </label>
         ) : null}
 
+        <details className="advanced-filters">
+          <summary>Advanced filters</summary>
+          <label>
+            Include
+            <input
+              value={include}
+              onChange={(event) => setInclude(event.target.value)}
+              placeholder="src/**, app/**, package.json"
+            />
+          </label>
+          <label>
+            Exclude
+            <input
+              value={exclude}
+              onChange={(event) => setExclude(event.target.value)}
+              placeholder="**/*.test.ts, dist/**, node_modules/**"
+            />
+          </label>
+        </details>
+
         <button className="submit" disabled={loading} type="submit">
           {loading ? "Collecting evidence..." : "Generate brief"}
         </button>
@@ -96,19 +208,43 @@ export function BriefWorkbench() {
           <span>Output</span>
           {result?.evidence ? (
             <small>
-              {result.evidence.filesRead} files · {result.evidence.treeEntries} tree
-              entries
+              {result.evidence.filesRead ?? 0} files ·{" "}
+              {result.evidence.treeEntries ?? 0} tree entries ·{" "}
+              {result.evidence.estimatedTokens ?? 0} est. tokens
             </small>
           ) : null}
         </header>
         {result?.error ? <p className="error">{result.error.message}</p> : null}
-        {result?.brief ? <pre>{result.brief}</pre> : null}
+        {result?.brief ? (
+          <>
+            <BriefActions
+              brief={result.brief}
+              evidence={result.evidence}
+              filename={slug(repository)}
+            />
+            <pre>{result.brief}</pre>
+            <div className="evidence-grid">
+              <article>
+                <h2>Selected files</h2>
+                <FileList files={selectedFiles} />
+              </article>
+              <article>
+                <h2>Skipped files</h2>
+                <FileList files={skippedFiles} />
+              </article>
+              <article>
+                <h2>Largest files</h2>
+                <FileList files={largestFiles} />
+              </article>
+            </div>
+          </>
+        ) : null}
         {!result ? (
           <div className="empty">
-            <strong>The brief will appear here.</strong>
+            <strong>Sample output preview</strong>
             <p>
-              It separates repository evidence from inference and calls out
-              unknowns explicitly.
+              A generated brief will show source files read, skipped files,
+              estimated tokens, architecture notes, risks, and a verification plan.
             </p>
           </div>
         ) : null}
@@ -116,4 +252,3 @@ export function BriefWorkbench() {
     </div>
   );
 }
-

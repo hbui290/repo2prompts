@@ -1,5 +1,6 @@
 import { SiteNav } from "@/components/site-chrome";
 import { listStoredBriefs } from "@/integrations/brief-store";
+import Link from "next/link";
 
 export default async function LibraryPage() {
   const briefs = await listStoredBriefs(null);
@@ -21,7 +22,12 @@ export default async function LibraryPage() {
             <article key={brief.id}>
               <div>
                 <p>{brief.repository_key}</p>
-                <h2>{brief.title}</h2>
+                <h2>
+                  <Link href={`/library/${brief.id}`}>{brief.title}</Link>
+                </h2>
+                <small>
+                  {brief.analysis_mode ?? "build"} · {brief.analysis_depth ?? "fast"}
+                </small>
               </div>
               <p>{brief.brief_markdown.slice(0, 280)}</p>
               <small>

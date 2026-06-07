@@ -8,16 +8,33 @@ test("accepts owner/repository", () => {
     owner: "Vercel",
     repository: "Next.js",
     key: "vercel/next.js",
+    ref: null,
+    path: null,
   });
 });
 
-test("accepts a GitHub repository URL and ignores trailing path", () => {
+test("accepts a GitHub repository URL", () => {
   assert.deepEqual(
-    parseRepositoryId("https://github.com/vercel/next.js/tree/canary"),
+    parseRepositoryId("https://github.com/vercel/next.js"),
     {
       owner: "vercel",
       repository: "next.js",
       key: "vercel/next.js",
+      ref: null,
+      path: null,
+    },
+  );
+});
+
+test("accepts a GitHub repository URL with branch and path", () => {
+  assert.deepEqual(
+    parseRepositoryId("https://github.com/vercel/next.js/tree/canary/packages/next"),
+    {
+      owner: "vercel",
+      repository: "next.js",
+      key: "vercel/next.js",
+      ref: "canary",
+      path: "packages/next",
     },
   );
 });
@@ -28,4 +45,3 @@ test("rejects non-GitHub URLs", () => {
     /public GitHub repository/i,
   );
 });
-

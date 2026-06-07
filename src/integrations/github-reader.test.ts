@@ -43,15 +43,65 @@ test("collects metadata and selected readable files", async () => {
   };
 
   const result = await collectRepositoryEvidence(
-    { owner: "acme", repository: "tool", key: "acme/tool" },
+    { owner: "acme", repository: "tool", key: "acme/tool", ref: null, path: null },
     "fast",
+    "build",
+    {},
     fetcher,
   );
 
   assert.equal(result.treeEntries, 3);
+  assert.equal(result.selection.estimatedTokens > 0, true);
   assert.deepEqual(
     result.files.map((file) => file.path),
     ["README.md", "package.json"],
   );
 });
 
+test("uses parsed branch and path when collecting evidence", async () => {
+  const responses = new Map<string, unknown>([
+    [
+      "https://api.github.com/repos/acme/tool",
+      {
+        default_branch: "main",
+        description: null,
+        language: null,
+        stargazers_count: 0,
+      },
+    ],
+    [
+      "https://api.github.com/repos/acme/tool/git/trees/dev?recursive=1",
+      {
+        tree: [
+          { type: "blob", path: "packages/api/README.md", size: 100 },
+          { type: "blob", path: "packages/web/README.md", size: 100 },
+        ],
+      },
+    ],
+    [
+      "https://api.github.com/repos/acme/tool/contents/packages/api/README.md?ref=dev",
+      { content: Buffer.from("# API").toString("base64") },
+    ],
+  ]);
+
+  const fetcher: typeof fetch = async (input) => {
+    const value = responses.get(String(input));
+    return new Response(JSON.stringify(value), {
+      status: value ? 200 : 404,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const result = await collectRepositoryEvidence(
+    { owner: "acme", repository: "tool", key: "acme/tool", ref: "dev", path: "packages/api" },
+    "balanced",
+    "build",
+    {},
+    fetcher,
+  );
+
+  assert.deepEqual(
+    result.files.map((file) => file.path),
+    ["packages/api/README.md"],
+  );
+});
