@@ -73,6 +73,14 @@ const defaultDependencies: AnalysisPipelineDependencies = {
   requestJson: requestModelJson,
 };
 
+async function ignoreDatabaseFailure<T>(operation: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await operation();
+  } catch {
+    return fallback;
+  }
+}
+
 function responseEvidence(evidence: RepositoryEvidence, analysis: AnalysisMetadata): StoredEvidence {
   return {
     filesRead: evidence.files.length,
@@ -209,7 +217,10 @@ export async function runAnalysisPipeline(
   });
   if (!evidence.files.length) throw new Error("NO_EVIDENCE: No readable repository evidence was found.");
 
-  const stored = await deps.readBrief(identity, evidence.evidenceFingerprint);
+  const stored = await ignoreDatabaseFailure(
+    () => deps.readBrief(identity, evidence.evidenceFingerprint),
+    null,
+  );
   if (stored) {
     const analysis = stored.evidence_json.analysis as AnalysisMetadata | undefined;
     return {
@@ -233,15 +244,23 @@ export async function runAnalysisPipeline(
   let modulesAnalyzed = 0;
   if (input.depth !== "fast") {
     const cacheIdentity = analysisIdentity(input, evidence, identity.questionHash);
-    repositoryMap = await deps.readAnalysis(cacheIdentity);
+    repositoryMap = await ignoreDatabaseFailure(() => deps.readAnalysis(cacheIdentity), null);
     if (repositoryMap) {
       mapSource = "cache";
     } else {
       const created = await createRepositoryMap(input, evidence, deps);
-      repositoryMap = created.map;
+      const createdMap = created.map;
+      repositoryMap = createdMap;
       modulesAnalyzed = created.modulesAnalyzed;
       mapSource = "generated";
-      await deps.saveAnalysis({ identity: cacheIdentity, repositoryMap, evidence: { files: evidence.files.map((file) => file.path) } });
+      await ignoreDatabaseFailure(
+        () => deps.saveAnalysis({
+          identity: cacheIdentity,
+          repositoryMap: createdMap,
+          evidence: { files: evidence.files.map((file) => file.path) },
+        }),
+        undefined,
+      );
     }
   }
 
@@ -273,12 +292,15 @@ export async function runAnalysisPipeline(
     quality,
   };
   const storedEvidence = responseEvidence(evidence, analysis);
-  await deps.saveBrief({
-    identity,
-    title: id.key,
-    brief,
-    evidence: storedEvidence,
-    evidenceFingerprint: evidence.evidenceFingerprint,
-  });
+  await ignoreDatabaseFailure(
+    () => deps.saveBrief({
+      identity,
+      title: id.key,
+      brief,
+      evidence: storedEvidence,
+      evidenceFingerprint: evidence.evidenceFingerprint,
+    }),
+    undefined,
+  );
   return { brief, source: "generated", mode: input.mode, depth: input.depth, evidence: storedEvidence, analysis };
 }

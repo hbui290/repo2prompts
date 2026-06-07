@@ -116,3 +116,34 @@ test("quality repair is called at most once", async () => {
   assert.equal(textCalls, 2);
   assert.equal(result.analysis.quality.repaired, true);
 });
+
+test("focused analysis uses a question-specific cache identity", async () => {
+  let capturedScope = "";
+  let capturedQuestionHash = "";
+  const { deps } = dependencies({
+    readAnalysis: async (identity) => {
+      capturedScope = identity.scope;
+      capturedQuestionHash = identity.questionHash;
+      return null;
+    },
+  });
+  await runAnalysisPipeline({
+    repository: "acme/tool", mode: "build", depth: "focused", question: "How does auth work?",
+  }, deps);
+  assert.equal(capturedScope, "focused");
+  assert.notEqual(capturedQuestionHash, "none");
+});
+
+test("database failures do not block generation", async () => {
+  const failure = async () => { throw new Error("database offline"); };
+  const { deps } = dependencies({
+    readBrief: failure,
+    saveBrief: failure,
+    readAnalysis: failure,
+    saveAnalysis: failure,
+  });
+  const result = await runAnalysisPipeline({
+    repository: "acme/tool", mode: "build", depth: "balanced", question: null,
+  }, deps);
+  assert.equal(result.source, "generated");
+});
