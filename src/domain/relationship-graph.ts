@@ -34,6 +34,14 @@ export function buildRelationshipGraph(files: GraphFile[]): EvidenceGraph {
       const target = resolveRelative(file.path, match[1], paths);
       if (target) edges.push({ from: file.path, to: target, kind: "import" });
     }
+    for (const match of file.content.matchAll(/from\s+(\.+[a-zA-Z0-9_.]+)\s+import/gu)) {
+      const dotted = match[1] ?? "";
+      const dots = dotted.match(/^\.+/u)?.[0].length ?? 0;
+      const modulePath = dotted.slice(dots).replaceAll(".", "/");
+      const relative = `${"../".repeat(Math.max(0, dots - 1))}${modulePath}`;
+      const target = resolveRelative(file.path, relative, paths);
+      if (target) edges.push({ from: file.path, to: target, kind: "import" });
+    }
     for (const match of file.content.matchAll(/process\.env\.([A-Z0-9_]+)/gu)) {
       const signal = `env:${match[1]}`;
       const owner = signalOwners.get(signal);

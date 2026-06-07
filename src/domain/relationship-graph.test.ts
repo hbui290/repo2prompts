@@ -19,3 +19,11 @@ test("extracts relative TypeScript imports and shared environment signals", () =
   assert.equal(graph.edges.some((edge) => edge.kind === "import" && edge.to === "src/auth.ts"), true);
   assert.equal(graph.edges.some((edge) => edge.kind === "environment"), true);
 });
+
+test("extracts relative Python imports", () => {
+  const graph = buildRelationshipGraph([
+    { path: "app/main.py", role: "entrypoint", content: "from .auth import login" },
+    { path: "app/auth.py", role: "service", content: "def login(): pass" },
+  ]);
+  assert.equal(graph.edges.some((edge) => edge.kind === "import" && edge.to === "app/auth.py"), true);
+});
