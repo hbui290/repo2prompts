@@ -40,3 +40,6 @@ create index repository_analysis_cache_repository_idx
   on public.repository_analysis_cache (repository_key, updated_at desc);
 
 alter table public.repository_analysis_cache enable row level security;
+
+revoke all on table public.repository_analysis_cache from anon, authenticated;
+grant select, insert, update on table public.repository_analysis_cache to service_role;

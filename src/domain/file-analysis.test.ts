@@ -5,6 +5,7 @@ import {
   classifyFile,
   extractQuestionKeywords,
   rankEvidenceFiles,
+  selectDiverseEvidence,
   shortlistLimit,
 } from "./file-analysis";
 
@@ -39,4 +40,17 @@ test("uses quality-max shortlist budgets", () => {
   assert.equal(shortlistLimit("balanced"), 70);
   assert.equal(shortlistLimit("focused"), 70);
   assert.equal(shortlistLimit("deep"), 120);
+});
+
+test("relationship signals raise connected files and review reserves tests", () => {
+  const ranked = rankEvidenceFiles(
+    [
+      { path: "src/isolated.ts", size: 100, sha: "a", content: "" },
+      { path: "src/connected.ts", size: 100, sha: "b", content: "" },
+      { path: "src/connected.test.ts", size: 100, sha: "c", content: "" },
+    ],
+    { mode: "review", depth: "balanced", relationshipScores: new Map([["src/connected.ts", 5]]) },
+  );
+  assert.equal(ranked[0]?.path, "src/connected.ts");
+  assert.equal(selectDiverseEvidence(ranked, 2, "review").some((file) => file.role === "test"), true);
 });

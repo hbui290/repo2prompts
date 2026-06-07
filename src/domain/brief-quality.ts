@@ -34,6 +34,12 @@ export function validateBriefQuality(input: {
   for (const citation of citations) {
     if (!selected.has(citation)) warnings.push(`Invalid citation: ${citation}`);
   }
+  const mentionedPaths = [...input.brief.matchAll(/`([^`\n]+(?:\/[^`\n]+|\.[a-z0-9]{1,8}))`/giu)]
+    .map((match) => match[1])
+    .filter((path): path is string => Boolean(path));
+  for (const path of mentionedPaths) {
+    if (!selected.has(path)) warnings.push(`Unsupported fabricated file path: ${path}`);
+  }
   if (!/unknown|inference/iu.test(input.brief)) warnings.push("Brief does not identify inference or unknowns.");
   return { passed: warnings.length === 0, warnings: [...new Set(warnings)], repaired: input.repaired ?? false };
 }

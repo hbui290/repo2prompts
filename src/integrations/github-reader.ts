@@ -7,11 +7,14 @@ import {
   type ContextSelection,
 } from "@/domain/context-policy";
 import {
+  classifyFile,
   finalEvidenceLimit,
   rankEvidenceFiles,
+  selectDiverseEvidence,
   shortlistLimit,
 } from "@/domain/file-analysis";
 import { createEvidenceFingerprint } from "@/domain/evidence-fingerprint";
+import { buildRelationshipGraph } from "@/domain/relationship-graph";
 import type { RepositoryId } from "@/domain/repository-id";
 
 type MetadataPayload = {
@@ -135,12 +138,23 @@ export async function collectRepositoryEvidence(
     );
   }
 
+  const graph = buildRelationshipGraph(readFiles.map((file) => ({
+    path: file.path,
+    content: file.content,
+    role: classifyFile(file.path),
+  })));
+  const relationshipScores = new Map<string, number>();
+  for (const edge of graph.edges) {
+    relationshipScores.set(edge.from, (relationshipScores.get(edge.from) ?? 0) + 1);
+    relationshipScores.set(edge.to, (relationshipScores.get(edge.to) ?? 0) + 1);
+  }
   const ranked = rankEvidenceFiles(readFiles, {
     mode,
     depth,
     question: filters.question,
+    relationshipScores,
   });
-  const kept = ranked.slice(0, finalEvidenceLimit(depth));
+  const kept = selectDiverseEvidence(ranked, finalEvidenceLimit(depth), mode);
   const keptPaths = new Set(kept.map((file) => file.path));
   const files = kept.map(({ path, content = "", sha }) => ({ path, content, sha }));
   for (const file of readFiles) {

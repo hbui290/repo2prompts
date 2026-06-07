@@ -5,7 +5,7 @@ import { validateBriefQuality } from "./brief-quality";
 
 test("detects missing headings and invalid citations", () => {
   const quality = validateBriefQuality({
-    brief: "# Product purpose\nShort claim [missing.ts]",
+    brief: "# Product purpose\nShort claim [missing.ts] and `invented/path.ts`",
     mode: "build",
     depth: "balanced",
     selectedPaths: ["src/app.ts"],
@@ -13,6 +13,7 @@ test("detects missing headings and invalid citations", () => {
   assert.equal(quality.passed, false);
   assert.equal(quality.warnings.some((warning) => warning.includes("heading")), true);
   assert.equal(quality.warnings.some((warning) => warning.includes("citation")), true);
+  assert.equal(quality.warnings.some((warning) => warning.includes("fabricated")), true);
 });
 
 test("accepts a sufficiently complete cited fast brief", () => {

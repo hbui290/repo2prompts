@@ -103,7 +103,12 @@ const MODE_ROLES: Record<AnalysisMode, FileRole[]> = {
 
 export function rankEvidenceFiles(
   files: AnalyzableFile[],
-  options: { mode: AnalysisMode; depth: AnalysisDepth; question?: string | null },
+  options: {
+    mode: AnalysisMode;
+    depth: AnalysisDepth;
+    question?: string | null;
+    relationshipScores?: Map<string, number>;
+  },
 ): RankedEvidenceFile[] {
   const keywords = extractQuestionKeywords(options.question);
   return files
@@ -115,7 +120,8 @@ export function rankEvidenceFiles(
         ROLE_BASE[role] +
         (MODE_ROLES[options.mode].includes(role) ? 35 : 0) +
         questionHits * 45 -
-        Math.floor(file.size / 40_000) * 8;
+        Math.floor(file.size / 40_000) * 8 +
+        (options.relationshipScores?.get(file.path) ?? 0) * 12;
       return {
         ...file,
         role,
@@ -126,4 +132,36 @@ export function rankEvidenceFiles(
     })
     .filter((file) => file.score > 0)
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+}
+
+export function selectDiverseEvidence(
+  ranked: RankedEvidenceFile[],
+  limit: number,
+  mode: AnalysisMode,
+): RankedEvidenceFile[] {
+  const selected: RankedEvidenceFile[] = [];
+  const take = (candidate: RankedEvidenceFile | undefined) => {
+    if (candidate && !selected.some((file) => file.path === candidate.path)) selected.push(candidate);
+  };
+  take(ranked.find((file) => file.role === "documentation" || file.role === "manifest"));
+  if (mode === "review" || mode === "debug") take(ranked.find((file) => file.role === "test"));
+  const folderCounts = new Map<string, number>();
+  for (const file of selected) {
+    const folder = file.path.split("/")[0] ?? "";
+    folderCounts.set(folder, (folderCounts.get(folder) ?? 0) + 1);
+  }
+  for (const file of ranked) {
+    if (selected.length >= limit) break;
+    if (selected.some((item) => item.path === file.path)) continue;
+    const folder = file.path.split("/")[0] ?? "";
+    const folderLimit = Math.max(3, Math.ceil(limit * 0.6));
+    if ((folderCounts.get(folder) ?? 0) >= folderLimit) continue;
+    selected.push(file);
+    folderCounts.set(folder, (folderCounts.get(folder) ?? 0) + 1);
+  }
+  for (const file of ranked) {
+    if (selected.length >= limit) break;
+    take(file);
+  }
+  return selected;
 }
