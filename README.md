@@ -9,6 +9,8 @@ selection, and generate an evidence-grounded brief for a coding agent.
 
 - Analysis modes: `build`, `review`, `debug`, `migration`, and `prompt`.
 - Depths: `fast`, `balanced`, `deep`, and `focused`.
+- Adaptive analysis with repository maps, bounded deep module analysis, citations,
+  deterministic quality checks, and evidence-fingerprint cache invalidation.
 - Include/exclude filters for repository evidence selection.
 - Selected/skipped file evidence, estimated tokens, and largest-file summaries.
 - Copy, Markdown download, and JSON evidence export actions.
@@ -42,7 +44,13 @@ Optional:
 
 ```env
 GITHUB_API_TOKEN=
+MODEL_ANALYSIS_ID=
+MODEL_WRITER_ID=
+MODEL_REQUEST_TIMEOUT_MS=90000
 ```
+
+`MODEL_ANALYSIS_ID` handles repository/module mapping and `MODEL_WRITER_ID`
+handles brief writing/repair. Both fall back to `MODEL_CHAT_ID`.
 
 Optional durable cache:
 
@@ -56,7 +64,19 @@ Never expose `DATABASE_SERVICE_KEY` through a `NEXT_PUBLIC_` variable.
 
 The evidence workbench migration adds `analysis_mode`, expands accepted depth
 values, and changes the cache key so different modes do not reuse the same
-stored brief.
+stored brief. The adaptive analysis migration adds a service-key-only repository
+map cache and includes the evidence fingerprint in final brief cache identity.
+
+## Analysis depths
+
+- `fast`: reads a broad shortlist, keeps up to 7 files, and makes one writer call.
+- `balanced`: keeps up to 20 files, creates or reuses a repository map, then writes.
+- `focused`: ranks evidence using the supplied question and caches a question-specific map.
+- `deep`: keeps up to 35 files, analyzes up to 6 modules with concurrency 3,
+  merges the maps, then writes and may repair once.
+
+Source blob SHAs, ref, path, filters, and selection policy form the evidence
+fingerprint. A changed fingerprint prevents reuse of stale generated briefs.
 
 Optional public and abuse-control config:
 
