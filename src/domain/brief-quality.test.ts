@@ -37,3 +37,20 @@ test("accepts a sufficiently complete cited fast brief", () => {
   });
   assert.equal(quality.passed, true);
 });
+
+test("does not treat regex snippets, packages, versions, or unknown filenames as citations", () => {
+  const quality = validateBriefQuality({
+    brief: [
+      "# Product purpose", "# Observed evidence", "# User-visible capabilities",
+      "# Architecture and data flow", "# External integrations", "# Implementation sequence",
+      "# Verification plan", "# Inferences and unknowns",
+      "Uses [word][' or ’][t|s], `@scope/package`, `3.0.0`, `./index.js`, and unknown `package-lock.json`.",
+      "Evidence [index.js].",
+      "x".repeat(600),
+    ].join("\n\n"),
+    mode: "build",
+    depth: "fast",
+    selectedPaths: ["index.js"],
+  });
+  assert.equal(quality.warnings.length, 0);
+});

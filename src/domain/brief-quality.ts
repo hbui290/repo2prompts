@@ -28,17 +28,24 @@ export function validateBriefQuality(input: {
     warnings.push(`Brief is shorter than the ${input.depth} quality minimum.`);
   }
   const selected = new Set(input.selectedPaths);
+  const normalizePath = (path: string) => path.replace(/^\.\//u, "");
+  const sourcePath = /\.(?:tsx?|jsx?|py|go|rs|java|rb|php|vue|svelte|md|json|toml|ya?ml|sql)$/iu;
   const citations = [...input.brief.matchAll(/\[([^\]\n]+)\]/gu)]
-    .flatMap((match) => match[1]?.split(",").map((path) => path.trim()) ?? []);
+    .flatMap((match) => match[1]?.split(",").map((path) => normalizePath(path.trim())) ?? [])
+    .filter((path) => selected.has(path) || sourcePath.test(path));
   if (selected.size && citations.length === 0) warnings.push("Brief has no source-file citation.");
   for (const citation of citations) {
     if (!selected.has(citation)) warnings.push(`Invalid citation: ${citation}`);
   }
-  const mentionedPaths = [...input.brief.matchAll(/`([^`\n]+(?:\/[^`\n]+|\.[a-z0-9]{1,8}))`/giu)]
+  const mentionedPaths = [...input.brief.matchAll(/`([^`\n]+)`/gu)]
     .map((match) => match[1])
     .filter((path): path is string => Boolean(path));
   for (const path of mentionedPaths) {
-    if (!selected.has(path)) warnings.push(`Unsupported fabricated file path: ${path}`);
+    const normalized = normalizePath(path);
+    const looksLikeRepositoryPath = (path.startsWith("./") || path.includes("/")) && sourcePath.test(path);
+    if (looksLikeRepositoryPath && !selected.has(normalized)) {
+      warnings.push(`Unsupported fabricated file path: ${path}`);
+    }
   }
   if (!/unknown|inference/iu.test(input.brief)) warnings.push("Brief does not identify inference or unknowns.");
   return { passed: warnings.length === 0, warnings: [...new Set(warnings)], repaired: input.repaired ?? false };

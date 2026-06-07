@@ -16,6 +16,7 @@ test("builds a prompt that separates evidence from inference", () => {
 
   assert.match(prompt, /Observed evidence/u);
   assert.match(prompt, /Inference/u);
+  assert.match(prompt, /Cite important architecture/u);
   assert.match(prompt, /Implementation sequence/u);
   assert.match(prompt, /acme\/tool/u);
 });

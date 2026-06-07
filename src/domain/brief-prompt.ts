@@ -125,6 +125,8 @@ Tree entries observed: ${context.treeEntries}
 
 Use only the repository evidence below. Label unsupported conclusions as
 "Inference" and identify missing information explicitly.
+Cite important architecture, data-flow, integration, and risk claims using the
+exact evidence path in square brackets, for example [src/app.ts].
 
 Return Markdown with these exact top-level headings:
 ${headings}
