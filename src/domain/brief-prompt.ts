@@ -66,6 +66,10 @@ const HEADINGS: Record<AnalysisMode, string[]> = {
   ],
 };
 
+export function requiredHeadings(mode: AnalysisMode): string[] {
+  return HEADINGS[mode];
+}
+
 export function normalizeAnalysisMode(value: unknown): AnalysisMode {
   return value === "review" ||
     value === "debug" ||
