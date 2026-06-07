@@ -73,7 +73,7 @@ export async function collectRepositoryEvidence(
   id: RepositoryId,
   depth: AnalysisDepth,
   mode: AnalysisMode = "build",
-  filters: { include?: string; exclude?: string } = {},
+  filters: { include?: string; exclude?: string; question?: string | null } = {},
   fetcher: typeof fetch = fetch,
 ): Promise<RepositoryEvidence> {
   const root = `https://api.github.com/repos/${id.owner}/${id.repository}`;
@@ -138,7 +138,7 @@ export async function collectRepositoryEvidence(
   const ranked = rankEvidenceFiles(readFiles, {
     mode,
     depth,
-    question: undefined,
+    question: filters.question,
   });
   const kept = ranked.slice(0, finalEvidenceLimit(depth));
   const keptPaths = new Set(kept.map((file) => file.path));

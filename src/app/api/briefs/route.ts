@@ -1,17 +1,6 @@
-import {
-  buildBriefPrompt,
-  normalizeAnalysisDepth,
-  normalizeAnalysisMode,
-} from "@/domain/brief-prompt";
-import { createBriefIdentity } from "@/domain/brief-identity";
-import { parseRepositoryId } from "@/domain/repository-id";
-import {
-  listStoredBriefs,
-  readStoredBrief,
-  saveStoredBrief,
-} from "@/integrations/brief-store";
-import { collectRepositoryEvidence } from "@/integrations/github-reader";
-import { requestBrief } from "@/integrations/model-client";
+import { normalizeAnalysisDepth, normalizeAnalysisMode } from "@/domain/brief-prompt";
+import { listStoredBriefs } from "@/integrations/brief-store";
+import { runAnalysisPipeline } from "@/integrations/analysis-pipeline";
 import {
   checkRateLimit,
   createRateLimiter,
@@ -93,66 +82,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const id = parseRepositoryId(body.repository);
-    const identity = createBriefIdentity(id.key, mode, depth, question);
-    const stored = await readStoredBrief(identity);
-    if (stored) {
-      return Response.json({
-        brief: stored.brief_markdown,
-        source: "cache",
-        mode: stored.analysis_mode ?? mode,
-        depth: stored.analysis_depth ?? depth,
-        evidence: {
-          filesRead: stored.evidence_json.filesRead ?? 0,
-          treeEntries: stored.evidence_json.treeEntries ?? 0,
-          estimatedTokens: stored.evidence_json.estimatedTokens ?? 0,
-          selectedFiles: stored.evidence_json.selectedFiles ?? [],
-          skippedFiles: stored.evidence_json.skippedFiles ?? [],
-          largestFiles: stored.evidence_json.largestFiles ?? [],
-        },
-      });
-    }
-
-    const evidence = await collectRepositoryEvidence(id, depth, mode, { include, exclude });
-    const brief = await requestBrief(
-      buildBriefPrompt({
-        repositoryKey: id.key,
-        mode,
-        depth,
-        question,
-        ...evidence,
-      }),
-    );
-    const responseEvidence = {
-      filesRead: evidence.files.length,
-      treeEntries: evidence.treeEntries,
-      estimatedTokens: evidence.selection.estimatedTokens,
-      selectedFiles: evidence.selection.selected.map((file) => ({
-        path: file.path,
-        size: file.size,
-        reason: file.reason,
-        estimatedTokens: file.estimatedTokens,
-      })),
-      skippedFiles: evidence.selection.skipped.map((file) => ({
-        path: file.path,
-        reason: file.reason,
-      })),
-      largestFiles: evidence.selection.largestFiles,
-    };
-    await saveStoredBrief({
-      identity,
-      title: id.key,
-      brief,
-      evidence: responseEvidence,
-    });
-
-    return Response.json({
-      brief,
-      source: "generated",
+    return Response.json(await runAnalysisPipeline({
+      repository: body.repository,
       mode,
       depth,
-      evidence: responseEvidence,
-    });
+      question,
+      include,
+      exclude,
+    }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed.";
     if (/public GitHub repository|Repository not found/iu.test(message)) {
@@ -163,6 +100,9 @@ export async function POST(request: Request) {
     }
     if (/Filter patterns/iu.test(message)) {
       return errorResponse("INVALID_FILTER", message, 400);
+    }
+    if (/NO_EVIDENCE/iu.test(message)) {
+      return errorResponse("NO_EVIDENCE", "No readable repository evidence was found.", 422);
     }
     if (/chat|model|MODEL_/iu.test(message)) {
       return errorResponse("MODEL_UNAVAILABLE", message, 502);
