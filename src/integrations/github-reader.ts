@@ -6,6 +6,12 @@ import {
   selectContextFiles,
   type ContextSelection,
 } from "@/domain/context-policy";
+import {
+  finalEvidenceLimit,
+  rankEvidenceFiles,
+  shortlistLimit,
+} from "@/domain/file-analysis";
+import { createEvidenceFingerprint } from "@/domain/evidence-fingerprint";
 import type { RepositoryId } from "@/domain/repository-id";
 
 type MetadataPayload = {
@@ -16,7 +22,7 @@ type MetadataPayload = {
 };
 
 type TreePayload = {
-  tree: Array<{ type: string; path: string; size?: number }>;
+  tree: Array<{ type: string; path: string; size?: number; sha?: string }>;
 };
 
 type ContentPayload = {
@@ -29,9 +35,12 @@ export type RepositoryEvidence = {
     language: string | null;
     stars: number;
   };
-  files: Array<{ path: string; content: string }>;
+  files: Array<{ path: string; content: string; sha: string }>;
   treeEntries: number;
   selection: ContextSelection;
+  resolvedRef: string;
+  repositoryPath: string;
+  evidenceFingerprint: string;
 };
 
 function headers(): HeadersInit {
@@ -79,18 +88,20 @@ export async function collectRepositoryEvidence(
   const treeFiles = tree.tree
     .filter((entry) => entry.type === "blob" && typeof entry.size === "number")
     .filter((entry) => !rootPath || entry.path.startsWith(rootPath))
-    .map((entry) => ({ path: entry.path, size: entry.size ?? 0 }));
-  const selection = selectContextFiles(treeFiles, {
+    .map((entry) => ({ path: entry.path, size: entry.size ?? 0, sha: entry.sha ?? "unknown" }));
+  const preliminary = selectContextFiles(treeFiles, {
     depth,
     mode,
     include: filters.include,
     exclude: filters.exclude,
+    limit: shortlistLimit(depth),
   });
-  const contentSkipped = [...selection.skipped];
+  const contentSkipped = [...preliminary.skipped];
 
-  const files = (
-    await Promise.all(
-      selection.selected.map(async ({ path }) => {
+  const readFiles: Array<{ path: string; content: string; sha: string; size: number }> = [];
+  for (let offset = 0; offset < preliminary.selected.length; offset += 8) {
+    const batch = await Promise.all(
+      preliminary.selected.slice(offset, offset + 8).map(async ({ path, size }) => {
         try {
           const payload = await githubJson<ContentPayload>(
             contentUrl(id, path, ref),
@@ -107,13 +118,52 @@ export async function collectRepositoryEvidence(
           return {
             path,
             content,
+            size,
+            sha: treeFiles.find((file) => file.path === path)?.sha ?? "unknown",
           };
         } catch {
+          contentSkipped.push({ path, size, reason: "read_failed" });
           return null;
         }
       }),
-    )
-  ).filter((file): file is { path: string; content: string } => file !== null);
+    );
+    readFiles.push(
+      ...batch.filter(
+        (file): file is { path: string; content: string; sha: string; size: number } =>
+          file !== null,
+      ),
+    );
+  }
+
+  const ranked = rankEvidenceFiles(readFiles, {
+    mode,
+    depth,
+    question: undefined,
+  });
+  const kept = ranked.slice(0, finalEvidenceLimit(depth));
+  const keptPaths = new Set(kept.map((file) => file.path));
+  const files = kept.map(({ path, content = "", sha }) => ({ path, content, sha }));
+  for (const file of readFiles) {
+    if (!keptPaths.has(file.path)) {
+      contentSkipped.push({ path: file.path, size: file.size, reason: "low_relevance" });
+    }
+  }
+  const selected = kept.map((file) => ({
+    path: file.path,
+    size: file.size,
+    score: file.score,
+    reason: file.reason,
+    estimatedTokens: estimateTokens(file.content ?? ""),
+  }));
+  const repositoryPath = id.path ?? "";
+  const evidenceFingerprint = createEvidenceFingerprint({
+    repositoryKey: id.key,
+    resolvedRef: ref,
+    repositoryPath,
+    include: filters.include,
+    exclude: filters.exclude,
+    files: kept.map(({ path, sha }) => ({ path, sha })),
+  });
 
   return {
     metadata: {
@@ -124,17 +174,13 @@ export async function collectRepositoryEvidence(
     files,
     treeEntries: tree.tree.length,
     selection: {
-      ...selection,
-      selected: selection.selected
-        .filter((file) => files.some((readable) => readable.path === file.path))
-        .map((file) => {
-          const readable = files.find((item) => item.path === file.path);
-          return readable
-            ? { ...file, estimatedTokens: estimateTokens(readable.content) }
-            : file;
-        }),
+      ...preliminary,
+      selected,
       skipped: contentSkipped,
       estimatedTokens: files.reduce((sum, file) => sum + estimateTokens(file.content), 0),
     },
+    resolvedRef: ref,
+    repositoryPath,
+    evidenceFingerprint,
   };
 }

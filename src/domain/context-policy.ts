@@ -14,6 +14,7 @@ export type SkippedReason =
   | "excluded_by_user"
   | "not_included_by_user"
   | "suspicious_secret"
+  | "read_failed"
   | "low_relevance";
 
 export type SelectedContextFile = RepositoryFile & {
@@ -39,6 +40,7 @@ export type ContextSelectionOptions = {
   mode?: AnalysisMode;
   include?: string;
   exclude?: string;
+  limit?: number;
 };
 
 const MAX_FILE_BYTES = 120_000;
@@ -204,7 +206,7 @@ export function selectContextFiles(
 
   const selected = candidates
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
-    .slice(0, limitForDepth(depth));
+    .slice(0, options.limit ?? limitForDepth(depth));
 
   const selectedPaths = new Set(selected.map((file) => file.path));
   for (const file of candidates) {

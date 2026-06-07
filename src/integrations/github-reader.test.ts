@@ -18,9 +18,9 @@ test("collects metadata and selected readable files", async () => {
       "https://api.github.com/repos/acme/tool/git/trees/main?recursive=1",
       {
         tree: [
-          { type: "blob", path: "README.md", size: 100 },
-          { type: "blob", path: "package.json", size: 80 },
-          { type: "blob", path: "dist/bundle.js", size: 90 },
+          { type: "blob", path: "README.md", size: 100, sha: "readme-sha" },
+          { type: "blob", path: "package.json", size: 80, sha: "package-sha" },
+          { type: "blob", path: "dist/bundle.js", size: 90, sha: "dist-sha" },
         ],
       },
     ],
@@ -51,6 +51,9 @@ test("collects metadata and selected readable files", async () => {
   );
 
   assert.equal(result.treeEntries, 3);
+  assert.equal(result.resolvedRef, "main");
+  assert.equal(result.evidenceFingerprint.length, 64);
+  assert.equal(result.files[0]?.sha, "readme-sha");
   assert.equal(result.selection.estimatedTokens > 0, true);
   assert.deepEqual(
     result.files.map((file) => file.path),
@@ -73,8 +76,8 @@ test("uses parsed branch and path when collecting evidence", async () => {
       "https://api.github.com/repos/acme/tool/git/trees/dev?recursive=1",
       {
         tree: [
-          { type: "blob", path: "packages/api/README.md", size: 100 },
-          { type: "blob", path: "packages/web/README.md", size: 100 },
+          { type: "blob", path: "packages/api/README.md", size: 100, sha: "api" },
+          { type: "blob", path: "packages/web/README.md", size: 100, sha: "web" },
         ],
       },
     ],
@@ -104,4 +107,35 @@ test("uses parsed branch and path when collecting evidence", async () => {
     result.files.map((file) => file.path),
     ["packages/api/README.md"],
   );
+});
+
+test("records failed shortlist reads as skipped evidence", async () => {
+  const fetcher: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.endsWith("/repos/acme/tool")) {
+      return Response.json({
+        default_branch: "main",
+        description: null,
+        language: null,
+        stargazers_count: 0,
+      });
+    }
+    if (url.includes("/git/trees/")) {
+      return Response.json({
+        tree: [{ type: "blob", path: "README.md", size: 100, sha: "sha" }],
+      });
+    }
+    return new Response("failed", { status: 500 });
+  };
+
+  const result = await collectRepositoryEvidence(
+    { owner: "acme", repository: "tool", key: "acme/tool", ref: null, path: null },
+    "fast",
+    "build",
+    {},
+    fetcher,
+  );
+
+  assert.equal(result.files.length, 0);
+  assert.equal(result.selection.skipped[0]?.reason, "read_failed");
 });
