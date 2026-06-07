@@ -27,6 +27,13 @@ type BriefResponse = {
     skippedFiles?: EvidenceFile[];
     largestFiles?: EvidenceFile[];
   };
+  analysis?: {
+    pipeline: "single_pass" | "repository_map" | "module_map";
+    repositoryMapSource: "generated" | "cache" | "not_used";
+    modulesAnalyzed: number;
+    evidenceFingerprint: string;
+    quality: { passed: boolean; warnings: string[]; repaired: boolean };
+  };
   error?: { message: string };
 };
 
@@ -217,6 +224,20 @@ export function BriefWorkbench() {
         {result?.error ? <p className="error">{result.error.message}</p> : null}
         {result?.brief ? (
           <>
+            {result.analysis ? (
+              <div className="analysis-strip">
+                <span>{result.analysis.pipeline.replaceAll("_", " ")}</span>
+                <span>Map: {result.analysis.repositoryMapSource}</span>
+                <span>{result.analysis.modulesAnalyzed} modules</span>
+                <span>{result.analysis.quality.passed ? "Quality passed" : "Quality warnings"}</span>
+                {result.analysis.quality.repaired ? <span>Repaired</span> : null}
+              </div>
+            ) : null}
+            {result.analysis?.quality.warnings.length ? (
+              <ul className="quality-warnings">
+                {result.analysis.quality.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+              </ul>
+            ) : null}
             <BriefActions
               brief={result.brief}
               evidence={result.evidence}

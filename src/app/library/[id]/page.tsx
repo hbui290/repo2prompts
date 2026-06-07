@@ -18,6 +18,7 @@ export default async function LibraryDetailPage({ params }: PageProps) {
   if (!brief) notFound();
 
   const evidence = brief.evidence_json ?? {};
+  const analysis = evidence.analysis;
 
   return (
     <main>
@@ -40,6 +41,14 @@ export default async function LibraryDetailPage({ params }: PageProps) {
           <span>{evidence.treeEntries ?? 0} tree entries</span>
           <span>{evidence.estimatedTokens ?? 0} est. tokens</span>
         </section>
+        {analysis ? (
+          <section className="analysis-strip">
+            <span>{analysis.pipeline?.replaceAll("_", " ")}</span>
+            <span>Map: {analysis.repositoryMapSource}</span>
+            <span>{analysis.modulesAnalyzed ?? 0} modules</span>
+            <span>{analysis.quality?.passed ? "Quality passed" : "Quality warnings"}</span>
+          </section>
+        ) : null}
         <pre>{brief.brief_markdown}</pre>
       </article>
       <SiteFooter />

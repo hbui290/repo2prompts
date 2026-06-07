@@ -83,3 +83,36 @@ test("balanced reuses a cached repository map", async () => {
   assert.deepEqual(calls, ["brief_writing"]);
   assert.equal(result.analysis.repositoryMapSource, "cache");
 });
+
+test("deep analyzes bounded modules and writes once", async () => {
+  const deepEvidence: RepositoryEvidence = {
+    ...evidence,
+    files: Array.from({ length: 50 }, (_, index) => ({
+      path: `src/feature-${index % 10}/file-${index}.ts`,
+      content: `export const value${index} = ${index};`,
+      sha: String(index),
+    })),
+  };
+  const { deps, calls } = dependencies({ collectEvidence: async () => deepEvidence });
+  const result = await runAnalysisPipeline({
+    repository: "acme/tool", mode: "build", depth: "deep", question: null,
+  }, deps);
+  assert.equal(calls.filter((call) => call === "module_analysis").length <= 6, true);
+  assert.equal(calls.filter((call) => call === "brief_writing").length, 1);
+  assert.equal(result.analysis.pipeline, "module_map");
+});
+
+test("quality repair is called at most once", async () => {
+  let textCalls = 0;
+  const { deps } = dependencies({
+    requestText: async () => {
+      textCalls += 1;
+      return "bad";
+    },
+  });
+  const result = await runAnalysisPipeline({
+    repository: "acme/tool", mode: "build", depth: "deep", question: null,
+  }, deps);
+  assert.equal(textCalls, 2);
+  assert.equal(result.analysis.quality.repaired, true);
+});
