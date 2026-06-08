@@ -58,3 +58,7 @@ scripts/bin/harness-cli.exe
 # Playwright MCP
 .playwright-mcp/
 
+# Spec directory
+repo2prompt-clean-spec/
+
+
