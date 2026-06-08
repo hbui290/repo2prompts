@@ -225,7 +225,7 @@ export function ContextPackPreview({
     });
   }
 
-  function toggleFolderFiles(folderFiles: UnifiedFile[], folderName: string) {
+  function toggleFolderFiles(folderFiles: UnifiedFile[]) {
     const filePaths = folderFiles.map((f) => f.path);
     const allChecked = folderFiles.every((f) => selectedPaths.has(f.path));
     onTogglePathsBatch(filePaths, !allChecked);
@@ -377,7 +377,7 @@ export function ContextPackPreview({
                               if (el) el.indeterminate = folderSomeChecked;
                             }}
                             onClick={(e) => e.stopPropagation()} // Prevent toggling expand on checkbox click
-                            onChange={() => toggleFolderFiles(folder.files, folder.name)}
+                            onChange={() => toggleFolderFiles(folder.files)}
                             style={{ cursor: "pointer", width: "16px", height: "16px", flexShrink: 0 }}
                           />
                           <span style={{ fontWeight: "600", fontSize: "14px", color: "#cdd6f4", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
