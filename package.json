@@ -2,12 +2,16 @@
   "name": "repo2prompts",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.1",
   "scripts": {
-    "dev": "next dev",
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "doctor": "node scripts/bootstrap.mjs --doctor",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "harness": "node scripts/run-harness-cli.mjs"
   },
   "dependencies": {
     "next": "16.2.7",
@@ -24,5 +28,10 @@
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.15"
+    }
   }
 }

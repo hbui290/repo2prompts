@@ -1,6 +1,7 @@
 import { createBriefIdentity } from "@/domain/brief-identity";
 import { buildBriefPrompt, requiredHeadings, type AnalysisDepth, type AnalysisMode } from "@/domain/brief-prompt";
 import { validateBriefQuality, type BriefQuality } from "@/domain/brief-quality";
+import { computeAgentReadiness } from "@/domain/agent-readiness";
 import { classifyFile } from "@/domain/file-analysis";
 import { groupRepositoryModules } from "@/domain/module-grouping";
 import { buildRelationshipGraph } from "@/domain/relationship-graph";
@@ -37,6 +38,7 @@ export type AnalysisPipelineInput = {
   question: string | null;
   include?: string;
   exclude?: string;
+  selectedFiles?: string[];
 };
 
 export type AnalysisPipelineResult = {
@@ -46,6 +48,8 @@ export type AnalysisPipelineResult = {
   depth: AnalysisDepth;
   evidence: StoredEvidence;
   analysis: AnalysisMetadata;
+  reportId?: string;
+  reportUrl?: string;
 };
 
 export type AnalysisPipelineDependencies = {
@@ -53,7 +57,7 @@ export type AnalysisPipelineDependencies = {
     id: RepositoryId,
     depth: AnalysisDepth,
     mode: AnalysisMode,
-    filters: { include?: string; exclude?: string; question?: string | null },
+    filters: { include?: string; exclude?: string; question?: string | null; selectedFiles?: string[] },
   ) => Promise<RepositoryEvidence>;
   readBrief: typeof readStoredBrief;
   saveBrief: typeof saveStoredBrief;
@@ -81,6 +85,11 @@ async function ignoreDatabaseFailure<T>(operation: () => Promise<T>, fallback: T
   }
 }
 
+function reportUrl(id: string): string {
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/u, "");
+  return site ? `${site}/library/${id}` : `/library/${id}`;
+}
+
 function responseEvidence(evidence: RepositoryEvidence, analysis: AnalysisMetadata): StoredEvidence {
   return {
     filesRead: evidence.files.length,
@@ -95,6 +104,14 @@ function responseEvidence(evidence: RepositoryEvidence, analysis: AnalysisMetada
     skippedFiles: evidence.selection.skipped.map((file) => ({ path: file.path, reason: file.reason })),
     largestFiles: evidence.selection.largestFiles,
     analysis,
+  };
+}
+
+function withReadiness(repository: string, evidence: StoredEvidence, brief?: string): StoredEvidence {
+  if (evidence.readiness) return evidence;
+  return {
+    ...evidence,
+    readiness: computeAgentReadiness({ repository, evidence, brief }),
   };
 }
 
@@ -214,6 +231,7 @@ export async function runAnalysisPipeline(
     include: input.include,
     exclude: input.exclude,
     question: input.question,
+    selectedFiles: input.selectedFiles,
   });
   if (!evidence.files.length) throw new Error("NO_EVIDENCE: No readable repository evidence was found.");
 
@@ -223,12 +241,15 @@ export async function runAnalysisPipeline(
   );
   if (stored) {
     const analysis = stored.evidence_json.analysis as AnalysisMetadata | undefined;
+    const storedEvidence = withReadiness(stored.repository_key, stored.evidence_json, stored.brief_markdown);
     return {
       brief: stored.brief_markdown,
       source: "cache",
       mode: stored.analysis_mode ?? input.mode,
       depth: stored.analysis_depth ?? input.depth,
-      evidence: stored.evidence_json,
+      evidence: storedEvidence,
+      reportId: stored.id,
+      reportUrl: reportUrl(stored.id),
       analysis: analysis ?? {
         pipeline: "single_pass",
         repositoryMapSource: "not_used",
@@ -291,8 +312,8 @@ export async function runAnalysisPipeline(
     evidenceFingerprint: evidence.evidenceFingerprint,
     quality,
   };
-  const storedEvidence = responseEvidence(evidence, analysis);
-  await ignoreDatabaseFailure(
+  const storedEvidence = withReadiness(id.key, responseEvidence(evidence, analysis), brief);
+  const saved = await ignoreDatabaseFailure(
     () => deps.saveBrief({
       identity,
       title: id.key,
@@ -300,7 +321,16 @@ export async function runAnalysisPipeline(
       evidence: storedEvidence,
       evidenceFingerprint: evidence.evidenceFingerprint,
     }),
-    undefined,
+    null,
   );
-  return { brief, source: "generated", mode: input.mode, depth: input.depth, evidence: storedEvidence, analysis };
+  return {
+    brief,
+    source: "generated",
+    mode: input.mode,
+    depth: input.depth,
+    evidence: storedEvidence,
+    analysis,
+    reportId: saved?.id,
+    reportUrl: saved?.id ? reportUrl(saved.id) : undefined,
+  };
 }

@@ -9,16 +9,16 @@ export default function PrivacyPage() {
         <h1>Privacy Policy</h1>
         <p className="intro">
           Repo2Prompts processes public repository information that users submit
-          and generated briefs created from that evidence.
+          and generated reports created from that evidence.
         </p>
 
         <h2>Information processed</h2>
         <p>
           The app receives repository identifiers, optional focused questions,
           public GitHub metadata, selected public source files, and generated
-          implementation briefs. If the database is configured, generated briefs
-          and non-secret evidence counts may be stored for cache and library
-          features.
+          implementation briefs. If the database is configured, generated reports,
+          evidence metadata, and non-secret evidence counts may be stored for cache,
+          shareable report, and library features.
         </p>
 
         <h2>Secrets and provider credentials</h2>
@@ -36,6 +36,20 @@ export default function PrivacyPage() {
           opt-out instructions.
         </p>
 
+        <h2>Public reports</h2>
+        <p>
+          Stored report pages may be available through shareable links when the
+          database-backed library is enabled. Avoid submitting repository prompts
+          or focused questions that you do not want reflected in report metadata.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Use the contact route published with the active deployment for privacy,
+          abuse, and deletion requests. If no contact route is published, treat
+          the deployment as a private or experimental service.
+        </p>
+
         <h2>Retention</h2>
         <p>
           Cached briefs remain in the configured database until the operator
@@ -47,4 +61,3 @@ export default function PrivacyPage() {
     </main>
   );
 }
-

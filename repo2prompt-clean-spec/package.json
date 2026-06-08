@@ -1,0 +1,12 @@
+{
+  "name": "repo2prompt-clean-spec",
+  "private": true,
+  "scripts": {
+    "bootstrap": "node ../scripts/spec-subdir-warning.mjs bootstrap",
+    "doctor": "node ../scripts/spec-subdir-warning.mjs doctor",
+    "dev": "node ../scripts/spec-subdir-warning.mjs dev",
+    "test": "node ../scripts/spec-subdir-warning.mjs test",
+    "lint": "node ../scripts/spec-subdir-warning.mjs lint",
+    "build": "node ../scripts/spec-subdir-warning.mjs build"
+  }
+}

@@ -1,11 +1,20 @@
-import { BriefWorkbench } from "@/components/brief-workbench";
+import { HomeLanding } from "@/components/home-landing";
 import { SiteFooter, SiteNav } from "@/components/site-chrome";
 
-export default function Home() {
+type HomePageProps = {
+  searchParams: Promise<{ repository?: string; advanced?: string }>;
+};
+
+export default async function Home({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+
   return (
     <main>
       <SiteNav />
-      <BriefWorkbench />
+      <HomeLanding
+        initialAdvanced={params.advanced === "1"}
+        initialRepository={params.repository ?? ""}
+      />
       <SiteFooter />
     </main>
   );

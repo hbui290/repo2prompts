@@ -1,6 +1,8 @@
-import { SiteNav } from "@/components/site-chrome";
+import { SiteFooter, SiteNav } from "@/components/site-chrome";
+import { computeAgentReadiness } from "@/domain/agent-readiness";
+import { EXAMPLE_REPORTS } from "@/domain/example-reports";
 import { listStoredBriefs } from "@/integrations/brief-store";
-import Link from "next/link";
+import { briefTakeaway, ReportCard } from "@/components/report-card";
 
 export default async function LibraryPage() {
   const briefs = await listStoredBriefs(null);
@@ -10,39 +12,85 @@ export default async function LibraryPage() {
       <SiteNav />
       <header className="library-header">
         <p className="kicker">Durable evidence</p>
-        <h1>Brief library</h1>
+        <h1>Reports</h1>
         <p className="intro">
-          Previously generated implementation briefs from the configured
-          database.
+          Browse example reports and saved generated reports in one place.
+          Scan by repo, mode, readiness, safety, and the strongest takeaway.
         </p>
       </header>
-      <section className="brief-list">
+      <section className="library-group gallery-grid">
+        <div className="library-group-heading">
+          <p className="kicker">Start here</p>
+          <h2>Example reports</h2>
+          <p>Use these to understand the output before generating your own.</p>
+        </div>
+        <div className="report-card-grid">
+          {EXAMPLE_REPORTS.map((report) => {
+            const readiness = report.evidence_json.readiness ?? computeAgentReadiness({
+              repository: report.repository_key,
+              mode: report.analysis_mode,
+              depth: report.analysis_depth,
+              brief: report.brief_markdown,
+              evidence: report.evidence_json,
+            });
+            return (
+              <ReportCard
+                key={report.slug}
+                href={`/examples/${report.slug}`}
+                repository={report.repository_key}
+                title={report.title}
+                summary={briefTakeaway(report.brief_markdown)}
+                mode={report.analysis_mode}
+                depth={report.analysis_depth}
+                score={readiness.score}
+                safety={readiness.safety.level}
+                cta="Open sample report"
+              />
+            );
+          })}
+        </div>
+      </section>
+      <section className="library-group gallery-grid">
+        <div className="library-group-heading">
+          <p className="kicker">Your generated reports</p>
+          <h2>Saved reports</h2>
+          <p>Reports generated through the app appear here when storage is configured.</p>
+        </div>
+        <div className="report-card-grid">
         {briefs.length ? (
-          briefs.map((brief) => (
-            <article key={brief.id}>
-              <div>
-                <p>{brief.repository_key}</p>
-                <h2>
-                  <Link href={`/library/${brief.id}`}>{brief.title}</Link>
-                </h2>
-                <small>
-                  {brief.analysis_mode ?? "build"} · {brief.analysis_depth ?? "fast"}
-                </small>
-              </div>
-              <p>{brief.brief_markdown.slice(0, 280)}</p>
-              <small>
-                {new Date(brief.created_at).toLocaleDateString()} ·{" "}
-                {brief.view_count} views
-              </small>
-            </article>
-          ))
+          briefs.map((brief) => {
+            const readiness = brief.evidence_json.readiness ?? computeAgentReadiness({
+              repository: brief.repository_key,
+              mode: brief.analysis_mode,
+              depth: brief.analysis_depth,
+              brief: brief.brief_markdown,
+              evidence: brief.evidence_json,
+            });
+            return (
+              <ReportCard
+                key={brief.id}
+                href={`/library/${brief.id}`}
+                repository={brief.repository_key}
+                title={brief.title}
+                summary={briefTakeaway(brief.brief_markdown)}
+                mode={brief.analysis_mode}
+                depth={brief.analysis_depth}
+                score={readiness.score}
+                safety={readiness.safety.level}
+                createdAt={brief.created_at}
+                views={brief.view_count}
+              />
+            );
+          })
         ) : (
           <div className="library-empty">
             No stored briefs. Configure the optional database and generate the
             first brief.
           </div>
         )}
+        </div>
       </section>
+      <SiteFooter />
     </main>
   );
 }

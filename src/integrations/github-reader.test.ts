@@ -139,3 +139,55 @@ test("records failed shortlist reads as skipped evidence", async () => {
   assert.equal(result.files.length, 0);
   assert.equal(result.selection.skipped[0]?.reason, "read_failed");
 });
+
+test("supports manually selected files to bypass default selection", async () => {
+  const responses = new Map<string, unknown>([
+    [
+      "https://api.github.com/repos/acme/tool",
+      {
+        default_branch: "main",
+        description: "A tool with many files",
+        language: "TypeScript",
+        stargazers_count: 5,
+      },
+    ],
+    [
+      "https://api.github.com/repos/acme/tool/git/trees/main?recursive=1",
+      {
+        tree: [
+          { type: "blob", path: "README.md", size: 100, sha: "readme-sha" },
+          { type: "blob", path: "src/index.ts", size: 200, sha: "index-sha" },
+          { type: "blob", path: "src/utils.ts", size: 150, sha: "utils-sha" },
+        ],
+      },
+    ],
+    [
+      "https://api.github.com/repos/acme/tool/contents/src/utils.ts?ref=main",
+      { content: Buffer.from("export const val = 42;").toString("base64") },
+    ],
+  ]);
+
+  const fetcher: typeof fetch = async (input) => {
+    const value = responses.get(String(input));
+    return new Response(JSON.stringify(value), {
+      status: value ? 200 : 404,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const result = await collectRepositoryEvidence(
+    { owner: "acme", repository: "tool", key: "acme/tool", ref: null, path: null },
+    "fast",
+    "build",
+    { selectedFiles: ["src/utils.ts"] },
+    fetcher,
+  );
+
+  assert.deepEqual(
+    result.files.map((file) => file.path),
+    ["src/utils.ts"],
+  );
+  assert.equal(result.selection.selected.length, 1);
+  assert.equal(result.selection.selected[0]?.path, "src/utils.ts");
+});
+

@@ -1,5 +1,6 @@
 import type { BriefIdentity } from "@/domain/brief-identity";
 import type { AnalysisDepth, AnalysisMode } from "@/domain/brief-prompt";
+import type { AgentReadinessReport } from "@/domain/agent-readiness";
 import type { RepositoryMap } from "@/domain/repository-map";
 
 export type StoredEvidence = {
@@ -14,6 +15,7 @@ export type StoredEvidence = {
   }>;
   skippedFiles?: Array<{ path: string; reason?: string }>;
   largestFiles?: Array<{ path: string; size?: number; estimatedTokens?: number }>;
+  readiness?: AgentReadinessReport;
   analysis?: {
     pipeline?: "single_pass" | "repository_map" | "module_map";
     repositoryMapSource?: "generated" | "cache" | "not_used";
@@ -83,12 +85,12 @@ export async function saveStoredBrief(input: {
   brief: string;
   evidence: StoredEvidence;
   evidenceFingerprint: string;
-}): Promise<void> {
-  await databaseFetch(
-    "repository_briefs?on_conflict=repository_key,analysis_mode,analysis_depth,question_hash,evidence_fingerprint",
+}): Promise<StoredBrief | null> {
+  const response = await databaseFetch(
+    "repository_briefs?on_conflict=repository_key,analysis_mode,analysis_depth,question_hash,evidence_fingerprint&select=id,repository_key,analysis_mode,analysis_depth,evidence_fingerprint,title,brief_markdown,evidence_json,created_at,view_count",
     {
       method: "POST",
-      headers: { prefer: "resolution=merge-duplicates,return=minimal" },
+      headers: { prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify({
         repository_key: input.identity.repositoryKey,
         analysis_mode: input.identity.mode,
@@ -102,6 +104,9 @@ export async function saveStoredBrief(input: {
       }),
     },
   );
+  if (!response?.ok) return null;
+  const rows = (await response.json()) as StoredBrief[];
+  return rows[0] ?? null;
 }
 
 export async function listStoredBriefs(search: string | null): Promise<StoredBrief[]> {
@@ -126,6 +131,20 @@ export async function readStoredBriefById(id: string): Promise<StoredBrief | nul
     id: `eq.${id}`,
     select:
       "id,repository_key,analysis_mode,analysis_depth,title,brief_markdown,evidence_json,created_at,view_count",
+    limit: "1",
+  });
+  const response = await databaseFetch(`repository_briefs?${query}`);
+  if (!response?.ok) return null;
+  const rows = (await response.json()) as StoredBrief[];
+  return rows[0] ?? null;
+}
+
+export async function readLatestStoredBriefByRepository(repositoryKey: string): Promise<StoredBrief | null> {
+  const query = new URLSearchParams({
+    repository_key: `eq.${repositoryKey}`,
+    select:
+      "id,repository_key,analysis_mode,analysis_depth,evidence_fingerprint,title,brief_markdown,evidence_json,created_at,view_count",
+    order: "created_at.desc",
     limit: "1",
   });
   const response = await databaseFetch(`repository_briefs?${query}`);

@@ -31,7 +31,7 @@ function dependencies(overrides: Partial<AnalysisPipelineDependencies> = {}) {
   const deps: AnalysisPipelineDependencies = {
     collectEvidence: async () => evidence,
     readBrief: async () => null,
-    saveBrief: async () => undefined,
+    saveBrief: async () => null,
     readAnalysis: async () => null,
     saveAnalysis: async () => undefined,
     requestText: async (task) => {
@@ -61,6 +61,7 @@ test("fast uses one writer call and no repository map", async () => {
   }, deps);
   assert.deepEqual(calls, ["brief_writing"]);
   assert.equal(result.analysis.pipeline, "single_pass");
+  assert.equal(typeof result.evidence.readiness?.score, "number");
 });
 
 test("balanced creates a repository map before writing", async () => {
@@ -70,6 +71,48 @@ test("balanced creates a repository map before writing", async () => {
   }, deps);
   assert.deepEqual(calls, ["repository_analysis", "brief_writing"]);
   assert.equal(result.analysis.repositoryMapSource, "generated");
+  assert.equal(typeof result.evidence.readiness?.score, "number");
+});
+
+test("cached legacy evidence receives readiness fallback without extra model calls", async () => {
+  const { deps, calls } = dependencies({
+    readBrief: async () => ({
+      id: "report-1",
+      repository_key: "acme/tool",
+      analysis_mode: "build",
+      analysis_depth: "fast",
+      evidence_fingerprint: "fingerprint",
+      title: "acme/tool",
+      brief_markdown: "# Product purpose\n\nUse [README.md].",
+      evidence_json: {
+        filesRead: 2,
+        treeEntries: 2,
+        selectedFiles: [
+          { path: "README.md", reason: "documentation", estimatedTokens: 2 },
+          { path: "src/app.ts", reason: "entrypoint", estimatedTokens: 5 },
+        ],
+        skippedFiles: [],
+        largestFiles: [],
+        analysis: {
+          pipeline: "single_pass",
+          repositoryMapSource: "not_used",
+          modulesAnalyzed: 0,
+          evidenceFingerprint: "fingerprint",
+          quality: { passed: true, warnings: [], repaired: false },
+        },
+      },
+      created_at: "2026-06-08T00:00:00.000Z",
+      view_count: 0,
+    }),
+  });
+
+  const result = await runAnalysisPipeline({
+    repository: "acme/tool", mode: "build", depth: "fast", question: null,
+  }, deps);
+
+  assert.equal(result.source, "cache");
+  assert.equal(typeof result.evidence.readiness?.score, "number");
+  assert.deepEqual(calls, []);
 });
 
 test("balanced reuses a cached repository map", async () => {

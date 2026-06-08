@@ -76,7 +76,7 @@ export async function collectRepositoryEvidence(
   id: RepositoryId,
   depth: AnalysisDepth,
   mode: AnalysisMode = "build",
-  filters: { include?: string; exclude?: string; question?: string | null } = {},
+  filters: { include?: string; exclude?: string; question?: string | null; selectedFiles?: string[] } = {},
   fetcher: typeof fetch = fetch,
 ): Promise<RepositoryEvidence> {
   const root = `https://api.github.com/repos/${id.owner}/${id.repository}`;
@@ -92,13 +92,39 @@ export async function collectRepositoryEvidence(
     .filter((entry) => entry.type === "blob" && typeof entry.size === "number")
     .filter((entry) => !rootPath || entry.path.startsWith(rootPath))
     .map((entry) => ({ path: entry.path, size: entry.size ?? 0, sha: entry.sha ?? "unknown" }));
-  const preliminary = selectContextFiles(treeFiles, {
-    depth,
-    mode,
-    include: filters.include,
-    exclude: filters.exclude,
-    limit: shortlistLimit(depth),
-  });
+
+  let preliminary: ContextSelection;
+  if (filters.selectedFiles && filters.selectedFiles.length > 0) {
+    const selectedPaths = new Set(filters.selectedFiles);
+    const selectedFilesList = treeFiles.filter((file) => selectedPaths.has(file.path));
+    preliminary = {
+      selected: selectedFilesList.map((file) => ({
+        path: file.path,
+        size: file.size,
+        score: 1,
+        reason: "custom_selection",
+        estimatedTokens: Math.ceil(file.size / 4),
+      })),
+      skipped: treeFiles
+        .filter((file) => !selectedPaths.has(file.path))
+        .map((file) => ({
+          path: file.path,
+          size: file.size,
+          reason: "excluded_by_user" as const,
+        })),
+      totalTreeEntries: tree.tree.length,
+      estimatedTokens: selectedFilesList.reduce((sum, file) => sum + Math.ceil(file.size / 4), 0),
+      largestFiles: [],
+    };
+  } else {
+    preliminary = selectContextFiles(treeFiles, {
+      depth,
+      mode,
+      include: filters.include,
+      exclude: filters.exclude,
+      limit: shortlistLimit(depth),
+    });
+  }
   const contentSkipped = [...preliminary.skipped];
 
   const readFiles: Array<{ path: string; content: string; sha: string; size: number }> = [];
@@ -154,7 +180,9 @@ export async function collectRepositoryEvidence(
     question: filters.question,
     relationshipScores,
   });
-  const kept = selectDiverseEvidence(ranked, finalEvidenceLimit(depth), mode);
+  const kept = filters.selectedFiles && filters.selectedFiles.length > 0
+    ? ranked
+    : selectDiverseEvidence(ranked, finalEvidenceLimit(depth), mode);
   const keptPaths = new Set(kept.map((file) => file.path));
   const files = kept.map(({ path, content = "", sha }) => ({ path, content, sha }));
   for (const file of readFiles) {
