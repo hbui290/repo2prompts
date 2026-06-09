@@ -10,8 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test \"src/**/*.test.ts\"",
-    "harness": "node scripts/run-harness-cli.mjs"
+    "test": "tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "next": "16.2.7",

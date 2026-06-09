@@ -90,30 +90,12 @@ function runPnpmInstall() {
   }
 }
 
-function ensureHarnessCli() {
-  const result = spawnSync(process.execPath, [path.join(scriptDir, "run-harness-cli.mjs"), "--ensure-only"], {
-    cwd: rootDir,
-    stdio: "pipe",
-    encoding: "utf8",
-    env: process.env,
-  });
-
-  if (result.status === 0) {
-    statusLine("Harness CLI", "OK", result.stdout.trim() || "ready");
-    return;
-  }
-
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
-  statusLine("Harness CLI", "WARN", output || "current platform artifact is missing");
-}
-
 function printNextSteps() {
   console.log("\nNext commands");
   console.log("- npm exec pnpm dev");
   console.log("- npm exec pnpm test");
   console.log("- npm exec pnpm lint");
   console.log("- npm exec pnpm build");
-  console.log("- npm run harness -- query matrix");
 }
 
 checkRoot();
@@ -129,8 +111,6 @@ if (!isDoctorMode && !dependencyCheck.ok) {
     fail(afterInstall.reason);
   }
 }
-
-ensureHarnessCli();
 
 if (isDoctorMode) {
   printNextSteps();

@@ -78,7 +78,6 @@ npm run bootstrap
 ```
 
 If the machine does not have a global `pnpm`, use the fallback commands below.
-If you accidentally opened `repo2prompt-clean-spec/`, go up one directory first.
 
 ```bash
 pnpm install

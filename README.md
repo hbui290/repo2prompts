@@ -1,11 +1,18 @@
 # Repo2Prompts
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![CI](https://github.com/hbui290/repo2prompts/actions/workflows/ci.yml/badge.svg)](https://github.com/hbui290/repo2prompts/actions/workflows/ci.yml)
+
 Turn any public GitHub repository into an evidence-backed brief for coding
 agents.
 
 Repo2Prompts analyzes repository structure, selects relevant files, cites exact
 paths, tracks skipped evidence, and exports report-ready prompts for Codex,
 Claude, Cursor, and other agent workflows.
+
+[Documentation](./docs/README.md) · [Examples](./docs/EXAMPLES.md) · [Security](./SECURITY.md) · [Contributing](./CONTRIBUTING.md)
+
+![Repo2Prompts homepage preview](./.github/assets/oss-preview-home.png)
 
 ## Why it exists
 
@@ -32,17 +39,9 @@ built for a stricter workflow:
 
 ## Quick start
 
-Start from the repo root, not `repo2prompt-clean-spec/`.
-
 ```bash
 npm run bootstrap
 cp .env.example .env.local
-pnpm dev
-```
-
-If `pnpm` is not installed globally, use:
-
-```bash
 npm exec pnpm dev
 ```
 
@@ -76,65 +75,6 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.example
 
 `MODEL_ANALYSIS_ID` handles repository and module analysis. `MODEL_WRITER_ID`
 handles brief writing and repair. Both fall back to `MODEL_CHAT_ID`.
-
-## Provider presets
-
-Repo2Prompts is provider-neutral. Any gateway that supports OpenAI-compatible
-`/chat/completions` can work with the same env names.
-
-### 9router
-
-Best for the verified self-host/local runtime.
-
-```env
-MODEL_BASE_URL=http://100.84.47.80:20128/v1
-MODEL_API_KEY=replace-with-9router-key
-MODEL_CHAT_ID=cx/gpt-5.5
-MODEL_ANALYSIS_ID=cx/gpt-5.5
-MODEL_WRITER_ID=cx/gpt-5.5
-```
-
-### Groq
-
-Good for fast or low-cost analysis. Verify available model IDs in your account
-before production use.
-
-```env
-MODEL_BASE_URL=https://api.groq.com/openai/v1
-MODEL_API_KEY=replace-with-groq-key
-MODEL_CHAT_ID=llama-3.1-8b-instant
-MODEL_ANALYSIS_ID=llama-3.1-8b-instant
-MODEL_WRITER_ID=llama-3.3-70b-versatile
-```
-
-### OpenRouter
-
-Good for provider flexibility. Free routes are useful for testing, but may be
-rate-limited or weak for deep reports.
-
-```env
-MODEL_BASE_URL=https://openrouter.ai/api/v1
-MODEL_API_KEY=replace-with-openrouter-key
-MODEL_CHAT_ID=openrouter/free
-MODEL_ANALYSIS_ID=openrouter/free
-MODEL_WRITER_ID=replace-with-quality-model-id
-```
-
-### Gemini-compatible gateway
-
-Repo2Prompts currently uses OpenAI-compatible chat completions. Use Gemini
-through a compatible gateway unless native Gemini support is added later.
-
-```env
-MODEL_BASE_URL=https://your-gemini-compatible-gateway/v1
-MODEL_API_KEY=replace-with-gateway-key
-MODEL_CHAT_ID=gemini-compatible-model-id
-MODEL_ANALYSIS_ID=gemini-compatible-fast-model-id
-MODEL_WRITER_ID=replace-with-quality-writer-model-id
-```
-
-Recommended routing: use a fast model for `MODEL_ANALYSIS_ID` and a stronger
-model for `MODEL_WRITER_ID`.
 
 ## How analysis works
 
@@ -194,6 +134,65 @@ Safety warnings are useful heuristics, not a security guarantee.
 The badge reads the latest stored report for `owner/repo`. It does not generate
 a new report, call GitHub, or call the model provider.
 
+## Provider presets
+
+Repo2Prompts is provider-neutral. Any gateway that supports OpenAI-compatible
+`/chat/completions` can work with the same env names.
+
+### 9router
+
+Best for a self-hosted local runtime.
+
+```env
+MODEL_BASE_URL=http://127.0.0.1:20128/v1
+MODEL_API_KEY=replace-with-9router-key
+MODEL_CHAT_ID=cx/gpt-5.5
+MODEL_ANALYSIS_ID=cx/gpt-5.5
+MODEL_WRITER_ID=cx/gpt-5.5
+```
+
+### Groq
+
+Good for fast or low-cost analysis. Verify available model IDs in your account
+before production use.
+
+```env
+MODEL_BASE_URL=https://api.groq.com/openai/v1
+MODEL_API_KEY=replace-with-groq-key
+MODEL_CHAT_ID=llama-3.1-8b-instant
+MODEL_ANALYSIS_ID=llama-3.1-8b-instant
+MODEL_WRITER_ID=llama-3.3-70b-versatile
+```
+
+### OpenRouter
+
+Good for provider flexibility. Free routes are useful for testing, but may be
+rate-limited or weak for deep reports.
+
+```env
+MODEL_BASE_URL=https://openrouter.ai/api/v1
+MODEL_API_KEY=replace-with-openrouter-key
+MODEL_CHAT_ID=openrouter/free
+MODEL_ANALYSIS_ID=openrouter/free
+MODEL_WRITER_ID=replace-with-quality-model-id
+```
+
+### Gemini-compatible gateway
+
+Repo2Prompts currently uses OpenAI-compatible chat completions. Use Gemini
+through a compatible gateway unless native Gemini support is added later.
+
+```env
+MODEL_BASE_URL=https://your-gemini-compatible-gateway/v1
+MODEL_API_KEY=replace-with-gateway-key
+MODEL_CHAT_ID=gemini-compatible-model-id
+MODEL_ANALYSIS_ID=gemini-compatible-fast-model-id
+MODEL_WRITER_ID=replace-with-quality-writer-model-id
+```
+
+Recommended routing: use a fast model for `MODEL_ANALYSIS_ID` and a stronger
+model for `MODEL_WRITER_ID`.
+
 ## Evidence filters
 
 Advanced filters accept comma-separated path patterns:
@@ -214,16 +213,8 @@ npm run bootstrap
 Standard checks:
 
 ```bash
-pnpm test
-pnpm lint
-pnpm build
-```
-
-Without global `pnpm`:
-
-```bash
-npm exec pnpm test
 npm exec pnpm lint
+npm exec pnpm test
 npm exec pnpm build
 ```
 
@@ -237,13 +228,14 @@ For report-detail or homepage UI changes, use
 - `src/domain`: deterministic prompt, scoring, export, and shaping logic
 - `src/integrations`: GitHub access, model calls, cache, logging, and rate
   limiting
-- `docs`: deployment, security, architecture, and operating notes
-- `scripts`: bootstrap helpers, Harness wrappers, and schema files
+- `docs`: deployment, security, examples, and architecture notes
+- `scripts`: local bootstrap helpers
 
 Read first:
 
-- `README.md`
+- `docs/README.md`
 - `docs/DEPLOYMENT.md`
+- `docs/ARCHITECTURE.md`
 - `docs/SECURITY.md`
 - `docs/REPORT_VISUAL_SMOKE.md`
 - `src/integrations/analysis-pipeline.ts`
@@ -259,12 +251,15 @@ Repo2Prompts is designed for server-side deployment.
 - Treat generated output as untrusted until checked against cited evidence
 - For public deployments, prefer a database-backed limiter or upstream WAF
 
-See `docs/SECURITY.md` for the full policy.
+See [SECURITY.md](./SECURITY.md) for disclosure rules and
+[`docs/SECURITY.md`](./docs/SECURITY.md) for the deeper policy.
 
-## Roadmap boundary
+## Support
 
-Semantic search via embeddings is intentionally deferred until the clean schema
-and release audit are independently reviewed.
+- Bugs: open a GitHub issue with reproduction steps
+- Product or UX ideas: open a feature request
+- Security disclosures: use the process in [SECURITY.md](./SECURITY.md), not a
+  public issue
 
 ## License
 

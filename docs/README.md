@@ -1,37 +1,18 @@
-# Documentation Map
+# Documentation
 
-This directory holds the project harness and any product contract derived from a
-future user-provided spec.
+Public documentation for Repo2Prompts lives here.
 
-## Main Files
+## Core docs
 
-- `HARNESS.md`: how humans and agents collaborate.
-- `FEATURE_INTAKE.md`: how prompts become tiny, normal, or high-risk work.
-- `ARCHITECTURE.md`: architecture discovery and boundary rules.
-- `TEST_MATRIX.md`: legacy proof map; current proof status is queried with
-  `scripts/bin/harness-cli query matrix`.
-- `HARNESS_BACKLOG.md`: legacy improvement list; current improvement records
-  are stored with `scripts/bin/harness-cli backlog`.
-- `GLOSSARY.md`: shared terms.
-- `REPORT_VISUAL_SMOKE.md`: manual QA checklist for report detail layout and CTA behavior.
+- `ARCHITECTURE.md`: current application structure and boundaries
+- `DEPLOYMENT.md`: environment, hosting, and production guidance
+- `EXAMPLES.md`: sample routes and recommended smoke path
+- `REPORT_VISUAL_SMOKE.md`: manual UI verification for homepage and report detail
+- `SECURITY.md`: deeper security boundary and abuse-response policy
 
-## Folders
+## How to use this folder
 
-- `product/`: current product truth, empty until a spec is derived.
-- `stories/`: feature packets and backlog.
-- `decisions/`: durable decisions and tradeoffs.
-- `demo/`: concrete walkthroughs that show how the harness transforms input
-  into agent-ready work.
-- `templates/`: reusable spec-intake, story, plan, decision, and validation
-  formats.
-
-## Current State
-
-Harness v0 exists before implementation. These docs define how the project will
-grow; they do not imply that app code, tests, CI, or deployment automation exist
-yet.
-
-Historical design/spec snapshots under `docs/superpowers/` and large project
-spec summaries may mention the original `pnpm`-only verification commands. Use
-the repo root `README.md`, `AGENTS.md`, `docs/DEPLOYMENT.md`, and
-`scripts/README.md` as the current operational contract.
+- Start with the repo root `README.md` for product overview and quick start
+- Read `DEPLOYMENT.md` before self-hosting or configuring production secrets
+- Read `SECURITY.md` for secret handling and public deployment boundaries
+- Use `EXAMPLES.md` and `REPORT_VISUAL_SMOKE.md` when checking the UI surface

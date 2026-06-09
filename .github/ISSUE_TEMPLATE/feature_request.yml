@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a product or developer-experience improvement
+title: "[feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for concrete product or developer-experience requests.
+  - type: input
+    id: problem
+    attributes:
+      label: Problem or pain
+      description: What job is blocked or painful today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should change?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workarounds or alternatives
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or context
+      description: User feedback, workflows, screenshots, or repo context that make this request concrete
+    validations:
+      required: false
