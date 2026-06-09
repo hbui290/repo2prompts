@@ -139,16 +139,16 @@ a new report, call GitHub, or call the model provider.
 Repo2Prompts is provider-neutral. Any gateway that supports OpenAI-compatible
 `/chat/completions` can work with the same env names.
 
-### 9router
+### Local gateway
 
-Best for a self-hosted local runtime.
+Good for self-hosted local routing through any OpenAI-compatible proxy.
 
 ```env
 MODEL_BASE_URL=http://127.0.0.1:20128/v1
-MODEL_API_KEY=replace-with-9router-key
-MODEL_CHAT_ID=cx/gpt-5.5
-MODEL_ANALYSIS_ID=cx/gpt-5.5
-MODEL_WRITER_ID=cx/gpt-5.5
+MODEL_API_KEY=replace-with-local-gateway-key
+MODEL_CHAT_ID=your-local-model-id
+MODEL_ANALYSIS_ID=your-fast-local-model-id
+MODEL_WRITER_ID=your-quality-local-model-id
 ```
 
 ### Groq

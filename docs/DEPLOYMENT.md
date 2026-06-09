@@ -29,7 +29,7 @@ Do not define provider keys or database service keys with `NEXT_PUBLIC_`.
 
 Repo2Prompts uses a server-side OpenAI-compatible chat client. Configure one of:
 
-- 9router for self-hosted/local routing.
+- a local OpenAI-compatible gateway for self-hosted routing.
 - Groq for fast and cheap analysis tasks.
 - OpenRouter for broad model/provider access.
 - Gemini through an OpenAI-compatible gateway.
